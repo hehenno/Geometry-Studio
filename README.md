@@ -34,7 +34,23 @@ Push this repo to GitHub, enable Pages in repo settings (Settings → Pages → 
 
 ### Mobile
 
-Open the deployed URL on your phone, then "Add to Home Screen" in Safari for a fullscreen native-like experience. Note: device motion access requires HTTPS, which GitHub Pages provides automatically.
+Open the deployed URL on your phone, then "Add to Home Screen" in Safari for a fullscreen native-like experience with the custom app icon. Note: device motion access requires HTTPS, which GitHub Pages provides automatically.
+
+## Repo layout
+
+```
+index.html         # The whole app
+manifest.json      # PWA metadata (name, icon, theme color)
+icon-1024.png      # Master app icon
+icon-180.png       # iPhone home screen
+icon-167.png       # iPad Pro home screen
+icon-152.png       # iPad home screen
+icon-120.png       # iPhone @2x
+icon-512.png       # Large PWA icon
+favicon-192.png    # Android / PWA icon
+favicon-32.png     # Browser tab favicon
+_render_icon.py    # Script that generates all icons (only needed if regenerating)
+```
 
 ## After Effects / Cinema 4D workflow
 
