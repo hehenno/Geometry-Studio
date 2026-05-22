@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>PIXEL.MATTER · Display</title>
+<style>
+  :root{
+    --bg:#000;
+    --panel:rgba(18,18,18,0.96);
+    --ink:#f0f0f0;
+    --dim:#888;
+    --accent:#ff2d2d;
+    --line:rgba(255,255,255,0.08);
+    --safe-top:env(safe-area-inset-top, 0px);
+    --safe-bot:env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  html,body{height:100%;width:100%;background:var(--bg);color:var(--ink);font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13px;overflow:hidden;overscroll-behavior:none;position:fixed;touch-action:none}
+
+  #stageWrap{
+    position:absolute;
+    top:calc(var(--safe-top) + 50px);
+    left:0;right:0;
+    bottom:38vh;
+    display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,#0a0a0a 0%,#000 100%);
+    padding:10px 4vw 60px;
+    transition:bottom 0.3s cubic-bezier(.4,0,.2,1);
+  }
+  body.sheet-expanded #stageWrap{
+    bottom:calc(100vh - 80px);
+  }
+  #stage{
+    display:block;background:#000;
+    box-shadow:0 0 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,0.04);
+    width:100%;height:100%;
+    max-width:min(92vw, calc(100vh - 38vh - 120px));
+    max-height:min(92vw, calc(100vh - 38vh - 120px));
+    aspect-ratio:1/1;touch-action:none;
+    object-fit:contain;
+  }
+
+  .topbar{
+    position:absolute;top:0;left:0;right:0;
+    padding:calc(var(--safe-top) + 12px) 16px 12px;
+    display:flex;align-items:center;justify-content:space-between;
+    z-index:10;pointer-events:none;
+  }
+  .logo{font-weight:700;letter-spacing:.2em;font-size:11px;pointer-events:auto}
+  .logo span{color:var(--accent)}
+  .status{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.15em;color:var(--dim);pointer-events:auto}
+  .status .dot{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:pulse 1.4s infinite}
+  .status.paused .dot{background:#444;animation:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .rec-indicator{
+    position:absolute;top:calc(var(--safe-top) + 50px);left:50%;transform:translateX(-50%);
+    display:none;align-items:center;gap:8px;
+    background:var(--accent);color:#000;padding:7px 14px;
+    font-size:11px;font-weight:700;letter-spacing:.15em;
+    border-radius:100px;z-index:20;
+  }
+  .rec-indicator.on{display:flex}
+  .rec-indicator .rdot{width:8px;height:8px;background:#000;border-radius:50%;animation:pulse 1s infinite}
+
+  .hint{
+    position:absolute;top:calc(var(--safe-top) + 50px);left:50%;transform:translateX(-50%);
+    font-size:9px;letter-spacing:.2em;color:#444;pointer-events:none;
+    text-transform:uppercase;
+  }
+
+  .quick{
+    position:absolute;
+    bottom:calc(38vh + 10px);
+    left:0;right:0;
+    display:flex;justify-content:center;gap:8px;
+    z-index:5;padding:0 12px;
+    transition:bottom 0.3s cubic-bezier(.4,0,.2,1);
+  }
+  body.sheet-expanded .quick{
+    opacity:0;pointer-events:none;
+  }
+  .quick button{
+    flex:0 0 auto;
+    background:rgba(20,20,20,0.85);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--line);color:var(--ink);
+    padding:10px 16px;font-family:inherit;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;border-radius:100px;cursor:pointer;min-height:38px;
+  }
+  .quick button:active{transform:scale(0.95);background:rgba(40,40,40,0.9)}
+  .quick button.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+  .quick button.primary:active{background:#ff5555}
+
+  .sheet{
+    position:absolute;bottom:0;left:0;right:0;
+    background:var(--panel);
+    backdrop-filter:blur(30px) saturate(180%);
+    -webkit-backdrop-filter:blur(30px) saturate(180%);
+    border-top:1px solid var(--line);
+    border-radius:24px 24px 0 0;
+    height:38vh;
+    transition:height 0.3s cubic-bezier(.4,0,.2,1);
+    z-index:30;padding-bottom:var(--safe-bot);
+    display:flex;flex-direction:column;
+  }
+  .sheet.expanded{ height:calc(100vh - 80px); }
+  .handle{
+    width:44px;height:5px;background:#444;border-radius:100px;
+    margin:8px auto 6px;flex:0 0 auto;
+  }
+
+  .tabs{
+    display:flex;gap:0;padding:6px 10px 2px;
+    border-bottom:1px solid var(--line);flex:0 0 auto;
+    overflow-x:auto;scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    background:transparent;border:none;color:var(--dim);
+    padding:8px 12px;font-family:inherit;font-size:9px;letter-spacing:.18em;
+    text-transform:uppercase;cursor:pointer;
+    border-bottom:2px solid transparent;
+    white-space:nowrap;flex:0 0 auto;
+  }
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+
+  .sheet-body{
+    flex:1;overflow-y:auto;overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;padding:10px 14px 26px;
+  }
+  .sheet-body::-webkit-scrollbar{width:0}
+  .panel{display:none}
+  .panel.active{display:block}
+
+  /* SHAPE GRID — icon buttons */
+  .modes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .modes button{
+    background:#161616;border:1px solid var(--line);color:#888;
+    padding:8px 4px 6px;font-family:inherit;font-size:8px;letter-spacing:.1em;
+    text-transform:uppercase;cursor:pointer;
+    border-radius:8px;min-height:50px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  }
+  .modes button svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .modes button:active{transform:scale(0.94)}
+  .modes button.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
+
+  /* SLIDER ROW — compact */
+  .slider-row{margin-bottom:10px}
+  .slider-row:last-child{margin-bottom:0}
+  .slider-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+  .slider-head label{font-size:9px;letter-spacing:.15em;color:#888;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .slider-head label svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.7}
+  .slider-head .val{font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:24px;background:transparent;outline:none}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:#222;border-radius:100px}
+  input[type=range]::-moz-range-track{height:2px;background:#222;border-radius:100px}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:20px;height:20px;
+    background:var(--accent);border-radius:50%;
+    margin-top:-9px;cursor:pointer;
+    box-shadow:0 1px 6px rgba(255,45,45,.4);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:20px;height:20px;background:var(--accent);
+    border-radius:50%;cursor:pointer;border:none;
+    box-shadow:0 1px 6px rgba(255,45,45,.4);
+  }
+
+  /* SELECT — compact */
+  .select-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 0;border-bottom:1px solid var(--line);
+  }
+  .select-row:last-child{border-bottom:none}
+  .select-row label{font-size:9px;letter-spacing:.15em;color:#888;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .select-row label svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.7}
+  .select-row select{
+    background:#161616;color:var(--ink);border:1px solid var(--line);
+    padding:6px 8px;font-family:inherit;font-size:11px;
+    border-radius:6px;min-width:120px;
+  }
+
+  /* PALETTES */
+  .palettes{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .palette{
+    background:#161616;border:1px solid var(--line);
+    padding:7px;cursor:pointer;border-radius:8px;
+  }
+  .palette:active{transform:scale(0.97)}
+  .palette.active{border-color:var(--accent);background:#2a1010}
+  .palette .swatches{display:flex;height:14px;margin-bottom:4px;border-radius:3px;overflow:hidden}
+  .palette .swatches span{flex:1}
+  .palette .name{font-size:9px;color:#aaa;letter-spacing:.08em;text-align:center}
+
+  /* ICON-TOGGLE GRID — square buttons that show on/off */
+  .icon-toggles{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+    padding:6px 0 4px;
+  }
+  .icon-tog{
+    background:#161616;border:1px solid var(--line);color:#666;
+    aspect-ratio:1/1;
+    border-radius:8px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;
+    transition:background .15s, border-color .15s, color .15s;
+    position:relative;
+  }
+  .icon-tog svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .icon-tog .tog-label{font-size:8px;letter-spacing:.1em;text-transform:uppercase}
+  .icon-tog:active{transform:scale(0.94)}
+  .icon-tog.on{
+    background:var(--accent);border-color:var(--accent);color:#000;
+  }
+  .icon-tog.on::after{
+    content:"";position:absolute;top:4px;right:4px;
+    width:5px;height:5px;background:#000;border-radius:50%;
+  }
+  .icon-tog:not(.on)::after{
+    content:"";position:absolute;top:4px;right:4px;
+    width:5px;height:5px;background:#333;border-radius:50%;
+  }
+
+  /* SUB-SECTION DIVIDER */
+  .divider{
+    display:flex;align-items:center;gap:6px;
+    margin:14px 0 8px;color:#444;
+    font-size:8px;letter-spacing:.25em;text-transform:uppercase;
+  }
+  .divider::before, .divider::after{
+    content:"";flex:1;height:1px;background:var(--line);
+  }
+
+  /* HINT text */
+  .hint-txt{
+    font-size:9px;color:#555;line-height:1.5;letter-spacing:.05em;
+    padding:6px 0 0;
+  }
+
+  /* MULTI-STATE level indicator inside an icon-tog */
+  .icon-tog.multi{position:relative}
+  .icon-tog .level-bar{
+    position:absolute;left:0;right:0;bottom:4px;
+    display:flex;gap:2px;padding:0 8px;
+  }
+  .icon-tog .level-bar span{
+    flex:1;height:2px;background:#2a2a2a;border-radius:1px;
+  }
+  .icon-tog.on .level-bar span{background:rgba(0,0,0,0.18)}
+  .icon-tog.on[data-level="1"] .level-bar span:nth-child(1),
+  .icon-tog.on[data-level="2"] .level-bar span:nth-child(1),
+  .icon-tog.on[data-level="2"] .level-bar span:nth-child(2),
+  .icon-tog.on[data-level="3"] .level-bar span:nth-child(1),
+  .icon-tog.on[data-level="3"] .level-bar span:nth-child(2),
+  .icon-tog.on[data-level="3"] .level-bar span:nth-child(3){
+    background:#000;
+  }
+
+  /* MINI TOGGLE — tiny inline icon toggle (used for tilt) */
+  .mini-tog{
+    width:28px;height:22px;
+    background:#161616;border:1px solid var(--line);
+    border-radius:5px;
+    color:#666;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;flex:0 0 28px;
+    transition:background .15s, border-color .15s, color .15s;
+  }
+  .mini-tog svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .mini-tog:active{transform:scale(0.92)}
+  .mini-tog.on{background:var(--accent);border-color:var(--accent);color:#000}
+
+
+  .fps{
+    position:absolute;top:calc(var(--safe-top) + 12px);left:50%;transform:translateX(-50%);
+    font-size:9px;letter-spacing:.2em;color:#333;pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PIXEL<span>.</span>MATTER <span style="color:var(--accent)">DISPLAY</span></div>
+  <div class="status" id="statusBar"><div class="dot"></div><span id="statusText">LIVE</span></div>
+</div>
+<div class="fps" id="fpsLabel">FPS 60</div>
+<div class="hint" id="hint">DRAG TO ROTATE</div>
+<div class="rec-indicator" id="recInd"><div class="rdot"></div>REC</div>
+
+<div id="stageWrap">
+  <canvas id="stage" width="1080" height="1080"></canvas>
+</div>
+
+<div class="quick">
+  <button id="randomBtn">🎲 RND</button>
+  <button id="pauseBtn">⏸ PAUSE</button>
+  <button id="pngBtn">📷 PNG</button>
+  <button id="recBtn" class="primary">⏺ REC</button>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="handle" id="handle"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-panel="shape">Shape</button>
+    <button class="tab" data-panel="display">Display</button>
+    <button class="tab" data-panel="motion">Motion</button>
+    <button class="tab" data-panel="color">Color</button>
+    <button class="tab" data-panel="output">Output</button>
+  </div>
+
+  <div class="sheet-body">
+
+    <div class="panel active" data-panel="shape">
+      <div class="modes" id="modeButtons">
+        <button data-mode="cube"><svg viewBox="0 0 24 24"><path d="M12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>CUBE</button>
+        <button data-mode="sphere" class="active"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="9" ry="3.5"/><path d="M12 3v18"/></svg>SPHR</button>
+        <button data-mode="torus"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="5"/><ellipse cx="12" cy="12" rx="4" ry="2"/></svg>TORS</button>
+        <button data-mode="cylinder"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="2.5"/><path d="M5 5v14M19 5v14"/><ellipse cx="12" cy="19" rx="7" ry="2.5"/></svg>CYLN</button>
+        <button data-mode="cone"><svg viewBox="0 0 24 24"><path d="M12 3 5 19M12 3l7 16"/><ellipse cx="12" cy="19" rx="7" ry="2.5"/></svg>CONE</button>
+        <button data-mode="pyramid"><svg viewBox="0 0 24 24"><path d="M12 3 4 19h16zM12 3v16M4 19l8-8 8 8"/></svg>PYRD</button>
+        <button data-mode="octahedron"><svg viewBox="0 0 24 24"><path d="M12 2 3 12l9 10 9-10z"/><path d="M3 12h18"/></svg>OCTA</button>
+        <button data-mode="icosahedron"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 9l9 3 9-3M12 12v9M7 5l5 7 5-7"/></svg>ICOS</button>
+        <button data-mode="helix"><svg viewBox="0 0 24 24"><path d="M6 3c4 3 8 3 12 0M6 9c4 3 8 3 12 0M6 15c4 3 8 3 12 0M6 21c4 3 8 3 12 0"/></svg>HLIX</button>
+      </div>
+
+      <div class="divider">Render</div>
+      <div class="icon-toggles">
+        <div class="icon-tog on" id="autoToggle">
+          <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+          <span class="tog-label">AUTO</span>
+        </div>
+        <div class="icon-tog on" id="shadeToggle">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M4.2 4.2l2 2M17.8 17.8l2 2M2 12h3M19 12h3M4.2 19.8l2-2M17.8 6.2l2-2"/></svg>
+          <span class="tog-label">LIGHT</span>
+        </div>
+        <div class="icon-tog on" id="quantToggle">
+          <svg viewBox="0 0 24 24"><circle cx="7" cy="7" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><circle cx="12" cy="12" r="2"/></svg>
+          <span class="tog-label">QNTZ</span>
+        </div>
+        <div class="icon-tog multi" id="wireToggle" data-level="0">
+          <svg viewBox="0 0 24 24"><path d="M12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8M7.5 5.5v8M16.5 5.5v8"/></svg>
+          <span class="tog-label" id="wireLabel">WIRE</span>
+          <div class="level-bar"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" data-panel="display">
+      <div class="select-row">
+        <label><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><circle cx="16" cy="8" r="1.5"/><circle cx="8" cy="16" r="1.5"/><circle cx="16" cy="16" r="1.5"/></svg>MODE</label>
+        <select id="displayMode">
+          <option value="dots" selected>Dots</option>
+          <option value="squares">Pixels</option>
+          <option value="rgb">RGB Subpx</option>
+          <option value="ascii">ASCII</option>
+        </select>
+      </div>
+      <div class="slider-row" style="margin-top:10px">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18"/></svg>RES</label><div class="val" id="resVal">60</div></div>
+        <input type="range" id="res" min="16" max="200" value="60" step="2">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>DOT</label><div class="val" id="dotSizeVal">0.85</div></div>
+        <input type="range" id="dotSize" min="0.2" max="1.2" value="0.85" step="0.05">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><path d="M4 12h7M13 12h7M11 8v8M13 8v8"/></svg>THRESH</label><div class="val" id="threshVal">0.10</div></div>
+        <input type="range" id="thresh" min="0" max="0.5" value="0.1" step="0.01">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><circle cx="6" cy="8" r="1"/><circle cx="12" cy="6" r="1"/><circle cx="18" cy="10" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="15" cy="16" r="1"/><circle cx="6" cy="18" r="1"/></svg>NOISE</label><div class="val" id="noiseVal">0.00</div></div>
+        <input type="range" id="noise" min="0" max="1" value="0" step="0.05">
+      </div>
+
+      <div class="divider">FX</div>
+      <div class="icon-toggles">
+        <div class="icon-tog multi" id="chromaToggle" data-level="0">
+          <svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6" opacity=".6"/><circle cx="15" cy="12" r="6" opacity=".6"/></svg>
+          <span class="tog-label">CHROM</span>
+          <div class="level-bar"><span></span><span></span><span></span></div>
+        </div>
+        <div class="icon-tog multi" id="grainToggle" data-level="0">
+          <svg viewBox="0 0 24 24"><circle cx="5" cy="7" r=".8"/><circle cx="10" cy="5" r=".8"/><circle cx="16" cy="7" r="1"/><circle cx="20" cy="11" r=".8"/><circle cx="7" cy="13" r=".8"/><circle cx="13" cy="11" r="1"/><circle cx="18" cy="16" r=".8"/><circle cx="9" cy="18" r="1"/><circle cx="14" cy="20" r=".8"/></svg>
+          <span class="tog-label">GRAIN</span>
+          <div class="level-bar"><span></span><span></span><span></span></div>
+        </div>
+        <div class="icon-tog" id="emitToggle">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6 6l1.5 1.5M16.5 16.5L18 18M6 18l1.5-1.5M16.5 7.5L18 6"/></svg>
+          <span class="tog-label">EMIT</span>
+        </div>
+        <div class="icon-tog" style="visibility:hidden">
+          <svg viewBox="0 0 24 24"></svg>
+          <span class="tog-label"></span>
+        </div>
+      </div>
+
+      <div id="grainRows" style="display:none">
+        <div class="slider-row" style="margin-top:14px">
+          <div class="slider-head"><label>GRN SPREAD</label><div class="val" id="grainSpreadVal">1.00</div></div>
+          <input type="range" id="grainSpread" min="0.3" max="3" value="1" step="0.1">
+        </div>
+      </div>
+      <div id="emitRows" style="display:none">
+        <div class="slider-row" style="margin-top:14px">
+          <div class="slider-head"><label>RATE</label><div class="val" id="emitRateVal">0.50</div></div>
+          <input type="range" id="emitRate" min="0" max="1" value="0.5" step="0.05">
+        </div>
+        <div class="slider-row">
+          <div class="slider-head"><label>LIFE</label><div class="val" id="emitLifeVal">1.20</div></div>
+          <input type="range" id="emitLife" min="0.2" max="4" value="1.2" step="0.1">
+        </div>
+        <div class="slider-row">
+          <div class="slider-head"><label>SPEED</label><div class="val" id="emitSpeedVal">1.00</div></div>
+          <input type="range" id="emitSpeed" min="0" max="4" value="1" step="0.1">
+        </div>
+        <div class="slider-row">
+          <div class="slider-head"><label>FPS</label><div class="val" id="emitFpsVal">12</div></div>
+          <input type="range" id="emitFps" min="2" max="60" value="12" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" data-panel="motion">
+      <div class="divider">Rotation</div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><path d="M4 12h16M12 4v16"/><circle cx="12" cy="12" r="3"/></svg>X</label><div class="val" id="rotXVal">0.30</div></div>
+        <input type="range" id="rotX" min="-2" max="2" value="0.3" step="0.05">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/><circle cx="12" cy="12" r="3"/></svg>Y</label><div class="val" id="rotYVal">0.50</div></div>
+        <input type="range" id="rotY" min="-2" max="2" value="0.5" step="0.05">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Z</label><div class="val" id="rotZVal">0.00</div></div>
+        <input type="range" id="rotZ" min="-2" max="2" value="0" step="0.05">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 14h6v6h-6zM10 10l4 4"/></svg>SCALE</label><div class="val" id="scaleVal">1.00</div></div>
+        <input type="range" id="scale" min="0.3" max="1.5" value="1" step="0.05">
+      </div>
+
+      <div class="divider">Light</div>
+      <div class="slider-row">
+        <div class="slider-head"><label><svg viewBox="0 0 24 24"><path d="M5 12h14M5 12l4-4M5 12l4 4"/></svg>L·HORZ</label><div class="val" id="lightAzVal">0.60</div></div>
+        <input type="range" id="lightAz" min="-3.14" max="3.14" value="0.6" step="0.05">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head">
+          <label><svg viewBox="0 0 24 24"><path d="M12 5v14M12 5l-4 4M12 5l4 4"/></svg>L·VERT</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="mini-tog" id="tiltToggle" title="Tilt to move light">
+              <svg viewBox="0 0 24 24"><path d="M6 4v14a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V4"/><circle cx="12" cy="12" r="2"/><path d="M9 4h6M12 6v0"/><path d="M16 8l3-2"/></svg>
+            </div>
+            <div class="mini-tog" id="tiltRotToggle" title="Tilt to rotate object">
+              <svg viewBox="0 0 24 24"><path d="M6 4v14a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V4M9 4h6"/><path d="M9 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg>
+            </div>
+            <div class="val" id="lightElVal">0.70</div>
+          </div>
+        </div>
+        <input type="range" id="lightEl" min="-1.57" max="1.57" value="0.7" step="0.05">
+      </div>
+      <p id="tiltHint" class="hint-txt" style="display:none">📱 Tilt phone → light direction</p>
+      <p id="tiltRotHint" class="hint-txt" style="display:none">📱 Tilt phone → object rotation</p>
+    </div>
+
+    <div class="panel" data-panel="color">
+      <div class="palettes" id="palettes"></div>
+    </div>
+
+    <div class="panel" data-panel="output">
+      <div class="select-row">
+        <label><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>SIZE</label>
+        <select id="canvasSize">
+          <option value="720">720²</option>
+          <option value="1080" selected>1080²</option>
+          <option value="1440">1440²</option>
+          <option value="1920">1920²</option>
+        </select>
+      </div>
+      <div class="select-row">
+        <label><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/></svg>BG</label>
+        <select id="bgColor">
+          <option value="#000000" selected>Black</option>
+          <option value="#0a0014">Purple</option>
+          <option value="#001014">Teal</option>
+          <option value="#ffffff">White</option>
+        </select>
+      </div>
+      <p class="hint-txt" style="margin-top:10px">Drag canvas: rotate · Pinch: zoom · Tap recording handle on top-bar.</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// =================== PALETTES ===================
+const PALETTES = {
+  rgb_sub: {name:"RGB Sub-Pixel", colors:["#ff0040","#00ff40","#0040ff","#ffffff"]},
+  rainbow: {name:"Pop Rainbow", colors:["#ff2d2d","#ff00aa","#ffd400","#00ff66","#00d4ff","#0040ff","#ffffff"]},
+  mono: {name:"Mono", colors:["#ffffff","#cccccc","#999999"]},
+  toxic: {name:"Toxic", colors:["#39ff14","#ccff00","#00ffcc","#ff00ff"]},
+  warm: {name:"Warm Glitch", colors:["#ff2d2d","#ff8800","#ffd400","#ffffff"]},
+  cool: {name:"Cool Glitch", colors:["#00d4ff","#0040ff","#00ff88","#ffffff"]},
+  cmy: {name:"CMY", colors:["#00ffff","#ff00ff","#ffff00","#ffffff"]},
+  fire: {name:"Fire", colors:["#ff0000","#ff6600","#ffaa00","#ffee00"]},
+  adam: {name:"Adam (Bright)", colors:["#ff2d2d","#ffd400","#00ff66","#00d4ff","#ff00ff","#ffffff"]},
+};
+
+// =================== STATE ===================
+const state = {
+  mode:"sphere",
+  // display
+  displayMode:"dots",
+  res:60,
+  dotSize:0.85,
+  thresh:0.1,
+  noise:0,
+  // motion
+  rotX:0.3, rotY:0.5, rotZ:0,
+  scale:1.0,
+  // light direction (angles in radians; azimuth around Y, elevation tilt)
+  lightAz: 0.6,    // horizontal angle (0 = front, pi/2 = right)
+  lightEl: 0.7,    // vertical angle (0 = side, pi/2 = top)
+  tiltLight: false,
+  tiltRotate: false,
+  // appearance
+  palette:"rgb_sub",
+  canvasSize:1080,
+  bg:"#000000",
+  paused:false,
+  autoRotate:true,
+  shade:true,
+  quant:true,
+  wireframe:false,
+  wireLevel:1,           // 0 thin / 1 med / 2 thick (only when wireframe on)
+  chroma:false,
+  chromaLevel:1,         // 0 mild / 1 med / 2 strong (only when chroma on)
+  grain:false,
+  grainLevel:1,          // 0 low / 1 med / 2 high
+  grainSpread:1.0,
+  emit:false,
+  emitRate:0.5,
+  emitLife:1.2,
+  emitSpeed:1.0,
+  emitFps:12,
+  // current rotation
+  angX:0.4, angY:0.6, angZ:0,
+  time:0,
+};
+
+let canvas, ctx;
+let sourceCanvas, sourceCtx; // offscreen render of the lit 3D shape
+let palCache = []; // cached RGB tuples for current palette
+
+// =================== 3D MESH GEOMETRY (triangles) ===================
+// All meshes return {verts: [[x,y,z],...], tris: [[ai,bi,ci],...]}
+function meshCube(){
+  const v = [
+    [-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],
+    [-1,-1, 1],[1,-1, 1],[1,1, 1],[-1,1, 1],
+  ];
+  const tris = [
+    [0,2,1],[0,3,2], // back
+    [4,5,6],[4,6,7], // front
+    [0,4,7],[0,7,3], // left
+    [1,2,6],[1,6,5], // right
+    [3,7,6],[3,6,2], // top
+    [0,1,5],[0,5,4], // bottom
+  ];
+  // explicit 12 edges of a cube (clean wireframe, no triangulation diagonals)
+  const edges = [
+    [0,1],[1,2],[2,3],[3,0], // back face
+    [4,5],[5,6],[6,7],[7,4], // front face
+    [0,4],[1,5],[2,6],[3,7], // connectors
+  ];
+  return {verts:v, tris, edges};
+}
+function meshSphere(stacks=40, slices=48){
+  const v=[]; const tris=[]; const normals=[];
+  for(let i=0;i<=stacks;i++){
+    const phi = i/stacks*Math.PI;
+    for(let j=0;j<=slices;j++){
+      const theta = j/slices*Math.PI*2;
+      const x = Math.sin(phi)*Math.cos(theta);
+      const y = Math.cos(phi);
+      const z = Math.sin(phi)*Math.sin(theta);
+      v.push([x,y,z]);
+      normals.push([x,y,z]); // for a unit sphere, position IS the normal
+    }
+  }
+  const cols = slices+1;
+  for(let i=0;i<stacks;i++){
+    for(let j=0;j<slices;j++){
+      const a = i*cols + j;
+      const b = a + cols;
+      tris.push([a,b,a+1]);
+      tris.push([a+1,b,b+1]);
+    }
+  }
+  // Curved wireframe: latitude rings + meridian arcs as smooth polylines
+  // Each curve is an array of [x,y,z] points
+  const wireCurves = [];
+  const curveSamples = 80; // smoothness per curve
+  // Latitude rings (skip poles)
+  const latLines = 7;
+  for(let i=1;i<latLines;i++){
+    const phi = i/latLines*Math.PI;
+    const ring = [];
+    for(let k=0;k<=curveSamples;k++){
+      const theta = k/curveSamples*Math.PI*2;
+      ring.push([
+        Math.sin(phi)*Math.cos(theta),
+        Math.cos(phi),
+        Math.sin(phi)*Math.sin(theta),
+      ]);
+    }
+    wireCurves.push(ring);
+  }
+  // Meridian arcs (longitude)
+  const lonLines = 12;
+  for(let j=0;j<lonLines;j++){
+    const theta = j/lonLines*Math.PI*2;
+    const arc = [];
+    for(let k=0;k<=curveSamples;k++){
+      const phi = k/curveSamples*Math.PI;
+      arc.push([
+        Math.sin(phi)*Math.cos(theta),
+        Math.cos(phi),
+        Math.sin(phi)*Math.sin(theta),
+      ]);
+    }
+    wireCurves.push(arc);
+  }
+  return {verts:v, tris, wireCurves, normals};
+}
+function meshTorus(R=0.75, r=0.3, major=48, minor=28){
+  const v=[]; const tris=[]; const normals=[];
+  for(let i=0;i<major;i++){
+    const u = i/major*Math.PI*2;
+    for(let j=0;j<minor;j++){
+      const w = j/minor*Math.PI*2;
+      const cu = Math.cos(u), su = Math.sin(u);
+      const cw = Math.cos(w), sw = Math.sin(w);
+      v.push([
+        (R+r*cw)*cu,
+        r*sw,
+        (R+r*cw)*su,
+      ]);
+      // normal at this point (direction from tube centerline outward)
+      normals.push([cw*cu, sw, cw*su]);
+    }
+  }
+  for(let i=0;i<major;i++){
+    for(let j=0;j<minor;j++){
+      const a = i*minor + j;
+      const b = ((i+1)%major)*minor + j;
+      const c = ((i+1)%major)*minor + (j+1)%minor;
+      const d = i*minor + (j+1)%minor;
+      tris.push([a,b,c]);
+      tris.push([a,c,d]);
+    }
+  }
+  // Curved wireframe: major rings (around tube) + minor rings (around hole)
+  const wireCurves = [];
+  const samples = 80;
+  // Major rings (cross-sections of the tube at different angles around the hole)
+  const majorRings = 12;
+  for(let i=0;i<majorRings;i++){
+    const u = i/majorRings*Math.PI*2;
+    const ring = [];
+    for(let k=0;k<=samples;k++){
+      const w = k/samples*Math.PI*2;
+      ring.push([
+        (R+r*Math.cos(w))*Math.cos(u),
+        r*Math.sin(w),
+        (R+r*Math.cos(w))*Math.sin(u),
+      ]);
+    }
+    wireCurves.push(ring);
+  }
+  // Minor rings (parallels around the hole at different points on the tube)
+  const minorRings = 6;
+  for(let j=0;j<minorRings;j++){
+    const w = j/minorRings*Math.PI*2;
+    const ring = [];
+    for(let k=0;k<=samples;k++){
+      const u = k/samples*Math.PI*2;
+      ring.push([
+        (R+r*Math.cos(w))*Math.cos(u),
+        r*Math.sin(w),
+        (R+r*Math.cos(w))*Math.sin(u),
+      ]);
+    }
+    wireCurves.push(ring);
+  }
+  return {verts:v, tris, wireCurves, normals};
+}
+function meshCylinder(slices=48){
+  const v=[]; const tris=[]; const normals=[];
+  for(let j=0;j<=slices;j++){
+    const t = j/slices*Math.PI*2;
+    const cx = Math.cos(t), cz = Math.sin(t);
+    v.push([cx, 1, cz]);
+    v.push([cx, -1, cz]);
+    // side normal points outward radially
+    normals.push([cx, 0, cz]);
+    normals.push([cx, 0, cz]);
+  }
+  for(let j=0;j<slices;j++){
+    const a = j*2, b = j*2+1, c = j*2+2, d = j*2+3;
+    tris.push([a,b,d]);
+    tris.push([a,d,c]);
+  }
+  // caps
+  const topCenter = v.length; v.push([0,1,0]); normals.push([0,1,0]);
+  const botCenter = v.length; v.push([0,-1,0]); normals.push([0,-1,0]);
+  for(let j=0;j<slices;j++){
+    tris.push([topCenter, j*2, (j+1)*2]);
+    tris.push([botCenter, (j+1)*2+1, j*2+1]);
+  }
+  // Curved wireframe: top circle, bottom circle, vertical lines
+  const wireCurves = [];
+  const samples = 80;
+  const topRing = [], botRing = [];
+  for(let k=0;k<=samples;k++){
+    const t = k/samples*Math.PI*2;
+    topRing.push([Math.cos(t), 1, Math.sin(t)]);
+    botRing.push([Math.cos(t), -1, Math.sin(t)]);
+  }
+  wireCurves.push(topRing);
+  wireCurves.push(botRing);
+  // Vertical connectors (just 2-point polylines)
+  const verticals = 12;
+  for(let j=0;j<verticals;j++){
+    const t = j/verticals*Math.PI*2;
+    wireCurves.push([
+      [Math.cos(t), 1, Math.sin(t)],
+      [Math.cos(t), -1, Math.sin(t)],
+    ]);
+  }
+  return {verts:v, tris, wireCurves, normals};
+}
+function meshCone(slices=48){
+  const v=[]; const tris=[]; const normals=[];
+  v.push([0,1,0]); normals.push([0,1,0]); // apex
+  // slope of cone side: outward + upward
+  const slopeY = 0.5; // tilt of side normal toward apex
+  for(let j=0;j<=slices;j++){
+    const t = j/slices*Math.PI*2;
+    const cx = Math.cos(t), cz = Math.sin(t);
+    v.push([cx, -1, cz]);
+    // normal: radial outward, tilted up slightly
+    const nl = Math.hypot(cx, slopeY, cz);
+    normals.push([cx/nl, slopeY/nl, cz/nl]);
+  }
+  for(let j=0;j<slices;j++){
+    tris.push([0, j+1, j+2]);
+  }
+  const cap = v.length; v.push([0,-1,0]); normals.push([0,-1,0]);
+  for(let j=0;j<slices;j++){
+    tris.push([cap, j+2, j+1]);
+  }
+  // Curved wireframe: base circle + lines from apex to base
+  const wireCurves = [];
+  const samples = 80;
+  const baseRing = [];
+  for(let k=0;k<=samples;k++){
+    const t = k/samples*Math.PI*2;
+    baseRing.push([Math.cos(t), -1, Math.sin(t)]);
+  }
+  wireCurves.push(baseRing);
+  const slants = 12;
+  for(let j=0;j<slants;j++){
+    const t = j/slants*Math.PI*2;
+    wireCurves.push([
+      [0, 1, 0],
+      [Math.cos(t), -1, Math.sin(t)],
+    ]);
+  }
+  return {verts:v, tris, wireCurves, normals};
+}
+function meshPyramid(){
+  const v=[
+    [-1,-1,-1],[1,-1,-1],[1,-1,1],[-1,-1,1],
+    [0,1,0],
+  ];
+  const tris=[
+    [0,2,1],[0,3,2], // base
+    [0,1,4],[1,2,4],[2,3,4],[3,0,4],
+  ];
+  const edges=[
+    [0,1],[1,2],[2,3],[3,0], // base square
+    [0,4],[1,4],[2,4],[3,4], // apex
+  ];
+  return {verts:v, tris, edges};
+}
+function meshOctahedron(){
+  const v=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  const tris=[
+    [0,2,4],[2,1,4],[1,3,4],[3,0,4],
+    [2,0,5],[1,2,5],[3,1,5],[0,3,5],
+  ];
+  return {verts:v, tris};
+}
+function meshIcosahedron(){
+  const t=(1+Math.sqrt(5))/2;
+  const raw=[
+    [-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],
+    [0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],
+    [t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1],
+  ];
+  const v=raw.map(p=>{const l=Math.hypot(...p);return [p[0]/l,p[1]/l,p[2]/l]});
+  const tris=[
+    [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+    [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+    [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+    [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
+  ];
+  return {verts:v, tris};
+}
+function meshHelix(turns=2.5, segments=120, tubeSlices=8, R=0.6, r=0.15){
+  const v=[]; const tris=[];
+  for(let i=0;i<=segments;i++){
+    const t = i/segments;
+    const ang = t*Math.PI*2*turns;
+    const cx = Math.cos(ang)*R;
+    const cy = -1 + t*2;
+    const cz = Math.sin(ang)*R;
+    // tangent
+    const tx = -Math.sin(ang)*R;
+    const ty = 2/(Math.PI*2*turns);
+    const tz =  Math.cos(ang)*R;
+    const tlen = Math.hypot(tx,ty,tz);
+    const tu = [tx/tlen, ty/tlen, tz/tlen];
+    // normal: cross(t, up)
+    const up=[0,1,0];
+    let nx = tu[1]*up[2]-tu[2]*up[1];
+    let ny = tu[2]*up[0]-tu[0]*up[2];
+    let nz = tu[0]*up[1]-tu[1]*up[0];
+    let nlen = Math.hypot(nx,ny,nz);
+    if(nlen<0.001){nx=1;ny=0;nz=0;nlen=1}
+    nx/=nlen;ny/=nlen;nz/=nlen;
+    // binormal
+    const bx = tu[1]*nz - tu[2]*ny;
+    const by = tu[2]*nx - tu[0]*nz;
+    const bz = tu[0]*ny - tu[1]*nx;
+    for(let j=0;j<tubeSlices;j++){
+      const phi = j/tubeSlices*Math.PI*2;
+      const cph=Math.cos(phi),sph=Math.sin(phi);
+      v.push([
+        cx + r*(nx*cph + bx*sph),
+        cy + r*(ny*cph + by*sph),
+        cz + r*(nz*cph + bz*sph),
+      ]);
+    }
+  }
+  for(let i=0;i<segments;i++){
+    for(let j=0;j<tubeSlices;j++){
+      const a = i*tubeSlices + j;
+      const b = (i+1)*tubeSlices + j;
+      const c = (i+1)*tubeSlices + (j+1)%tubeSlices;
+      const d = i*tubeSlices + (j+1)%tubeSlices;
+      tris.push([a,b,c]);
+      tris.push([a,c,d]);
+    }
+  }
+  // Curved wireframe: the spiral itself (centerline)
+  const spiral = [];
+  for(let i=0;i<=segments*2;i++){
+    const t = i/(segments*2);
+    const ang = t*Math.PI*2*turns;
+    spiral.push([Math.cos(ang)*R, -1 + t*2, Math.sin(ang)*R]);
+  }
+  return {verts:v, tris, wireCurves:[spiral]};
+}
+
+// Derive edge list from triangle list (deduplicated)
+function edgesFromTris(tris){
+  const seen = new Set();
+  const edges = [];
+  const add = (a,b)=>{
+    const k = a<b ? a+','+b : b+','+a;
+    if(seen.has(k)) return;
+    seen.add(k);
+    edges.push([a,b]);
+  };
+  for(const t of tris){
+    add(t[0],t[1]);
+    add(t[1],t[2]);
+    add(t[2],t[0]);
+  }
+  return edges;
+}
+
+const MESHES = {
+  cube:meshCube(),
+  sphere:meshSphere(),
+  torus:meshTorus(),
+  cylinder:meshCylinder(),
+  cone:meshCone(),
+  pyramid:meshPyramid(),
+  octahedron:meshOctahedron(),
+  icosahedron:meshIcosahedron(),
+  helix:meshHelix(),
+};
+// Fill in edges where missing
+for(const k in MESHES){
+  if(!MESHES[k].edges) MESHES[k].edges = edgesFromTris(MESHES[k].tris);
+}
+
+// =================== UI ===================
+function initSheet(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.onclick=()=>{
+      const target = t.dataset.panel;
+      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+      document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.dataset.panel===target));
+    };
+  });
+  const sheet = document.getElementById('sheet');
+  const handle = document.getElementById('handle');
+  let startY=0, startExpanded=false;
+  handle.addEventListener('touchstart',e=>{startY=e.touches[0].clientY;startExpanded=sheet.classList.contains('expanded')},{passive:true});
+  handle.addEventListener('touchmove',e=>{
+    const delta=startY-e.touches[0].clientY;
+    if(!startExpanded&&delta>30){sheet.classList.add('expanded');document.body.classList.add('sheet-expanded')}
+    if(startExpanded&&delta<-30){sheet.classList.remove('expanded');document.body.classList.remove('sheet-expanded')}
+  },{passive:true});
+  handle.addEventListener('click',()=>{
+    sheet.classList.toggle('expanded');
+    document.body.classList.toggle('sheet-expanded', sheet.classList.contains('expanded'));
+  });
+}
+
+function initUI(){
+  document.querySelectorAll('#modeButtons button').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.mode===state.mode);
+    btn.onclick=()=>{
+      document.querySelectorAll('#modeButtons button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.mode=btn.dataset.mode;
+    };
+  });
+
+  const setupToggle=(id,prop)=>{
+    const el = document.getElementById(id);
+    el.classList.toggle('on', state[prop]);
+    el.onclick=()=>{
+      state[prop]=!state[prop];
+      el.classList.toggle('on', state[prop]);
+    };
+  };
+  setupToggle('autoToggle','autoRotate');
+  setupToggle('shadeToggle','shade');
+  setupToggle('quantToggle','quant');
+
+  // Multi-state cycling toggle: off → level 1 → level 2 → level 3 → off
+  // Used for wire, chroma, grain.
+  const setupMultiToggle = (id, onProp, levelProp, levels)=>{
+    const el = document.getElementById(id);
+    const sync = ()=>{
+      el.classList.toggle('on', state[onProp]);
+      el.dataset.level = state[onProp] ? String(state[levelProp]+1) : '0';
+    };
+    sync();
+    el.onclick = ()=>{
+      if(!state[onProp]){
+        // turn on at level 0
+        state[onProp] = true;
+        state[levelProp] = 0;
+      } else if(state[levelProp] < levels - 1){
+        // step up
+        state[levelProp]++;
+      } else {
+        // turn off
+        state[onProp] = false;
+        state[levelProp] = 0;
+      }
+      sync();
+      if(id === 'grainToggle'){
+        document.getElementById('grainRows').style.display = state.grain ? 'block' : 'none';
+      }
+    };
+  };
+  setupMultiToggle('wireToggle', 'wireframe', 'wireLevel', 3);
+  setupMultiToggle('chromaToggle', 'chroma', 'chromaLevel', 3);
+  setupMultiToggle('grainToggle', 'grain', 'grainLevel', 3);
+
+  // Initial state for grain extras
+  document.getElementById('grainRows').style.display = state.grain ? 'block' : 'none';
+
+  // emit toggle (simple on/off)
+  const emitEl = document.getElementById('emitToggle');
+  const emitRows = document.getElementById('emitRows');
+  emitEl.classList.toggle('on', state.emit);
+  emitRows.style.display = state.emit ? 'block' : 'none';
+  emitEl.onclick=()=>{
+    state.emit=!state.emit;
+    emitEl.classList.toggle('on', state.emit);
+    emitRows.style.display = state.emit ? 'block' : 'none';
+    if(!state.emit) emittedParticles.length = 0;
+  };
+
+  // Motion permission is needed by both Tilt Light and Tilt Rotate toggles.
+  // IMPORTANT: on iOS, DeviceOrientationEvent.requestPermission() MUST be called
+  // synchronously from a user-gesture click handler — no awaits before it.
+  let motionGranted = false;
+  function requestMotionThen(callback){
+    // Already granted in this session
+    if(motionGranted){ callback(true); return; }
+    // No permission system (Android, desktop): just attach
+    if(typeof DeviceOrientationEvent === 'undefined' ||
+       typeof DeviceOrientationEvent.requestPermission !== 'function'){
+      motionGranted = true;
+      callback(true);
+      return;
+    }
+    // iOS 13+: call requestPermission synchronously
+    DeviceOrientationEvent.requestPermission().then(res=>{
+      if(res === 'granted'){
+        motionGranted = true;
+        callback(true);
+      } else {
+        alert('Motion access was denied. Go to Settings → Safari → Advanced → Motion & Orientation Access, enable it, then reload.');
+        callback(false);
+      }
+    }).catch(err=>{
+      alert('Motion permission error: '+(err && err.message ? err.message : err));
+      callback(false);
+    });
+  }
+  // Master orientation listener — calls both handlers if their toggles are on
+  let motionListenerAttached = false;
+  function attachMotionListener(){
+    if(motionListenerAttached) return;
+    window.addEventListener('deviceorientation', onAnyDeviceOrientation);
+    motionListenerAttached = true;
+  }
+  function detachMotionListenerIfUnused(){
+    if(motionListenerAttached && !state.tiltLight && !state.tiltRotate){
+      window.removeEventListener('deviceorientation', onAnyDeviceOrientation);
+      motionListenerAttached = false;
+    }
+  }
+
+  // tilt light toggle — uses device orientation
+  const tiltEl = document.getElementById('tiltToggle');
+  const tiltHint = document.getElementById('tiltHint');
+  tiltEl.classList.toggle('on', state.tiltLight);
+  tiltHint.style.display = state.tiltLight ? 'block' : 'none';
+  tiltEl.onclick = ()=>{
+    if(!state.tiltLight){
+      // Must run requestPermission synchronously inside the gesture
+      requestMotionThen(ok=>{
+        if(!ok) return;
+        attachMotionListener();
+        state.tiltLight = true;
+        tiltEl.classList.add('on');
+        tiltHint.style.display = 'block';
+      });
+    } else {
+      state.tiltLight = false;
+      tiltEl.classList.remove('on');
+      tiltHint.style.display = 'none';
+      detachMotionListenerIfUnused();
+    }
+  };
+
+  // tilt rotate toggle — uses device orientation
+  const tiltRotEl = document.getElementById('tiltRotToggle');
+  const tiltRotHint = document.getElementById('tiltRotHint');
+  tiltRotEl.classList.toggle('on', state.tiltRotate);
+  tiltRotHint.style.display = state.tiltRotate ? 'block' : 'none';
+  tiltRotEl.onclick = ()=>{
+    if(!state.tiltRotate){
+      requestMotionThen(ok=>{
+        if(!ok) return;
+        attachMotionListener();
+        state.tiltRotate = true;
+        tiltRotEl.classList.add('on');
+        tiltRotHint.style.display = 'block';
+        tiltRotBaseline = null;
+      });
+    } else {
+      state.tiltRotate = false;
+      tiltRotEl.classList.remove('on');
+      tiltRotHint.style.display = 'none';
+      detachMotionListenerIfUnused();
+    }
+  };
+
+  const palWrap = document.getElementById('palettes');
+  Object.entries(PALETTES).forEach(([key,p])=>{
+    const div=document.createElement('div');
+    div.className='palette'+(key===state.palette?' active':'');
+    div.dataset.key=key;
+    div.innerHTML='<div class="swatches">'+p.colors.map(c=>`<span style="background:${c}"></span>`).join('')+'</div><div class="name">'+p.name+'</div>';
+    div.onclick=()=>{
+      document.querySelectorAll('.palette').forEach(x=>x.classList.remove('active'));
+      div.classList.add('active');
+      state.palette=key;
+      cachePalette();
+    };
+    palWrap.appendChild(div);
+  });
+  cachePalette();
+
+  const bind = (id, prop, fmt=v=>v)=>{
+    const el = document.getElementById(id);
+    const v = document.getElementById(id+'Val');
+    el.value = state[prop];
+    v.textContent = fmt(state[prop]);
+    el.oninput = ()=>{
+      state[prop] = parseFloat(el.value);
+      v.textContent = fmt(state[prop]);
+    };
+  };
+  bind('res','res',v=>v|0);
+  bind('dotSize','dotSize',v=>v.toFixed(2));
+  bind('thresh','thresh',v=>v.toFixed(2));
+  bind('noise','noise',v=>v.toFixed(2));
+  bind('grainSpread','grainSpread',v=>v.toFixed(2));
+  bind('emitRate','emitRate',v=>v.toFixed(2));
+  bind('emitLife','emitLife',v=>v.toFixed(2));
+  bind('emitSpeed','emitSpeed',v=>v.toFixed(2));
+  bind('emitFps','emitFps',v=>v|0);
+  bind('rotX','rotX',v=>v.toFixed(2));
+  bind('rotY','rotY',v=>v.toFixed(2));
+  bind('rotZ','rotZ',v=>v.toFixed(2));
+  bind('scale','scale',v=>v.toFixed(2));
+  bind('lightAz','lightAz',v=>v.toFixed(2));
+  bind('lightEl','lightEl',v=>v.toFixed(2));
+
+  document.getElementById('displayMode').onchange=(e)=>{state.displayMode=e.target.value};
+  document.getElementById('canvasSize').onchange=(e)=>{
+    state.canvasSize=parseInt(e.target.value);
+    resizeCanvases();
+  };
+  document.getElementById('bgColor').onchange=(e)=>{state.bg=e.target.value};
+
+  document.getElementById('randomBtn').onclick=randomize;
+  document.getElementById('pauseBtn').onclick=togglePause;
+  document.getElementById('pngBtn').onclick=exportPNG;
+  document.getElementById('recBtn').onclick=toggleRecord;
+
+  // drag rotate + pinch zoom
+  let dragging=false, lastX=0, lastY=0;
+  let pinching=false, pinchStartDist=0, pinchStartScale=1;
+  const startDrag=(x,y)=>{dragging=true;lastX=x;lastY=y;document.getElementById('hint').style.display='none'};
+  const moveDrag=(x,y)=>{
+    if(!dragging) return;
+    const dx=(x-lastX), dy=(y-lastY);
+    lastX=x;lastY=y;
+    state.angY += dx*0.01;
+    state.angX += dy*0.01;
+  };
+  const endDrag=()=>{dragging=false};
+
+  const touchDist = (t1, t2) => Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY);
+  const updateScaleUI = ()=>{
+    const el = document.getElementById('scale');
+    const v = document.getElementById('scaleVal');
+    if(el) el.value = state.scale;
+    if(v) v.textContent = state.scale.toFixed(2);
+  };
+
+  canvas.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(e.touches.length===2){
+      pinching=true;dragging=false;
+      pinchStartDist = touchDist(e.touches[0], e.touches[1]);
+      pinchStartScale = state.scale;
+      document.getElementById('hint').style.display='none';
+    } else if(e.touches.length===1){
+      const t=e.touches[0];
+      startDrag(t.clientX,t.clientY);
+    }
+  },{passive:false});
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    if(pinching && e.touches.length===2){
+      const d = touchDist(e.touches[0], e.touches[1]);
+      const ratio = d / pinchStartDist;
+      const next = Math.max(0.3, Math.min(1.5, pinchStartScale * ratio));
+      state.scale = next;
+      updateScaleUI();
+    } else if(!pinching && e.touches.length===1){
+      const t=e.touches[0];
+      moveDrag(t.clientX,t.clientY);
+    }
+  },{passive:false});
+  canvas.addEventListener('touchend',e=>{
+    if(e.touches.length<2) pinching=false;
+    if(e.touches.length===0) endDrag();
+  });
+  canvas.addEventListener('touchcancel',()=>{pinching=false;endDrag()});
+  canvas.addEventListener('mousedown',e=>startDrag(e.clientX,e.clientY));
+  window.addEventListener('mousemove',e=>moveDrag(e.clientX,e.clientY));
+  window.addEventListener('mouseup',endDrag);
+
+  // trackpad / mouse-wheel zoom for desktop
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.05 : 0.95;
+    state.scale = Math.max(0.3, Math.min(1.5, state.scale * factor));
+    updateScaleUI();
+  },{passive:false});
+}
+
+function cachePalette(){
+  palCache = PALETTES[state.palette].colors.map(hexToRgb);
+}
+function hexToRgb(hex){
+  return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
+}
+
+function randomize(){
+  const modes=Object.keys(MESHES);
+  state.mode = modes[Math.floor(Math.random()*modes.length)];
+  state.palette = Object.keys(PALETTES)[Math.floor(Math.random()*Object.keys(PALETTES).length)];
+  state.rotX = (Math.random()-0.5)*1.5;
+  state.rotY = (Math.random()-0.5)*1.5;
+  state.rotZ = (Math.random()-0.5)*0.4;
+  state.res = 30 + Math.floor(Math.random()*100);
+  state.lightAz = (Math.random()-0.5)*2*Math.PI;
+  state.lightEl = (Math.random()-0.5)*Math.PI;
+  const modes2 = ['dots','squares','rgb'];
+  state.displayMode = modes2[Math.floor(Math.random()*modes2.length)];
+  // re-sync ui
+  document.querySelectorAll('#modeButtons button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.mode));
+  document.querySelectorAll('.palette').forEach(b=>b.classList.toggle('active',b.dataset.key===state.palette));
+  document.getElementById('displayMode').value = state.displayMode;
+  ['rotX','rotY','rotZ','res','lightAz','lightEl'].forEach(k=>{
+    document.getElementById(k).value=state[k];
+    document.getElementById(k+'Val').textContent = (k==='res')?(state[k]|0):state[k].toFixed(2);
+  });
+  cachePalette();
+}
+
+function togglePause(){
+  state.paused=!state.paused;
+  document.getElementById('pauseBtn').textContent = state.paused?'▶ PLAY':'⏸ PAUSE';
+  document.getElementById('statusBar').classList.toggle('paused', state.paused);
+  document.getElementById('statusText').textContent = state.paused?'PAUSED':'LIVE';
+}
+
+// =================== CANVASES ===================
+function resizeCanvases(){
+  canvas.width = state.canvasSize;
+  canvas.height = state.canvasSize;
+  // source canvas can be small — we sample colors from it
+  // but we want it big enough to do good lit rendering. Use a fixed 512.
+  sourceCanvas.width = 512;
+  sourceCanvas.height = 512;
+}
+
+// =================== 3D RENDER (to source canvas) ===================
+// rotate vert and project to source canvas
+function project3D(v, ax, ay, az, scale, cw, ch){
+  let [x,y,z] = v;
+  // rotate X
+  let y1 = y*Math.cos(ax) - z*Math.sin(ax);
+  let z1 = y*Math.sin(ax) + z*Math.cos(ax);
+  // rotate Y
+  let x2 = x*Math.cos(ay) + z1*Math.sin(ay);
+  let z2 = -x*Math.sin(ay) + z1*Math.cos(ay);
+  // rotate Z
+  let x3 = x2*Math.cos(az) - y1*Math.sin(az);
+  let y3 = x2*Math.sin(az) + y1*Math.cos(az);
+  // orthographic projection - no perspective
+  return {
+    sx: cw/2 + x3*scale,
+    sy: ch/2 + y3*scale,
+    z: z2,
+    x: x3, y: y3,
+    zRaw: z2,
+  };
+}
+
+function renderSource(){
+  const cw = sourceCanvas.width, ch = sourceCanvas.height;
+  const sctx = sourceCtx;
+  sctx.fillStyle = state.bg;
+  sctx.fillRect(0,0,cw,ch);
+
+  const mesh = MESHES[state.mode];
+  const ax = state.angX, ay = state.angY, az = state.angZ;
+  const scale = cw * 0.48 * state.scale;
+
+  // project all verts
+  const projected = mesh.verts.map(v=>project3D(v, ax, ay, az, scale, cw, ch));
+
+  // Pre-rotate vertex normals once (if mesh provides them)
+  let rotNormals = null;
+  if(mesh.normals){
+    rotNormals = mesh.normals.map(n=>{
+      let [x,y,z] = n;
+      // rotate X
+      let y1 = y*Math.cos(ax) - z*Math.sin(ax);
+      let z1 = y*Math.sin(ax) + z*Math.cos(ax);
+      // rotate Y
+      let x2 = x*Math.cos(ay) + z1*Math.sin(ay);
+      let z2 = -x*Math.sin(ay) + z1*Math.cos(ay);
+      // rotate Z
+      let x3 = x2*Math.cos(az) - y1*Math.sin(az);
+      let y3 = x2*Math.sin(az) + y1*Math.cos(az);
+      return [x3, y3, z2];
+    });
+  }
+
+  // === WIREFRAME PATH ===
+  if(state.wireframe){
+    // Use a near-white that the dot sampler can recolor via quantize.
+    // (Quantize maps white to the brightest palette color, but downstream we let the
+    // display layer pick varied colors — so the wireframe gets the palette too.)
+    sctx.strokeStyle = '#ffffff';
+    // Stroke width is expressed in "grid cells" of coverage.
+    // A cell on the source canvas is cw/state.res pixels wide.
+    // wireStroke=1 → ~1 cell thick. wireStroke=3 → ~3 cells thick.
+    const cellPx = cw / state.res;
+    // wireLevel 0 = thin, 1 = med, 2 = thick
+    const wireWidths = [1.0, 2.5, 5.0];
+    sctx.lineWidth = cellPx * (wireWidths[state.wireLevel] || 1);
+    sctx.lineCap = 'round';
+    sctx.lineJoin = 'round';
+
+    // If the mesh provides smooth curves, draw those (rounded shapes).
+    if(mesh.wireCurves){
+      for(const curve of mesh.wireCurves){
+        // project this curve's points
+        const pts = curve.map(v=>project3D(v, ax, ay, az, scale, cw, ch));
+        sctx.beginPath();
+        sctx.moveTo(pts[0].sx, pts[0].sy);
+        for(let i=1;i<pts.length;i++) sctx.lineTo(pts[i].sx, pts[i].sy);
+        sctx.stroke();
+      }
+    } else {
+      // Straight-line edges (polyhedra like cube, pyramid, octa, icosa)
+      sctx.beginPath();
+      for(const e of mesh.edges){
+        const a = projected[e[0]];
+        const b = projected[e[1]];
+        sctx.moveTo(a.sx, a.sy);
+        sctx.lineTo(b.sx, b.sy);
+      }
+      sctx.stroke();
+    }
+    return;
+  }
+
+  // === FILLED TRIANGLE PATH (original) ===
+  // build triangle list with depth + normal for shading
+  const drawList = [];
+  for(const tri of mesh.tris){
+    const a = projected[tri[0]];
+    const b = projected[tri[1]];
+    const c = projected[tri[2]];
+    // back-face culling via screen winding
+    const cross = (b.sx-a.sx)*(c.sy-a.sy) - (b.sy-a.sy)*(c.sx-a.sx);
+    if(cross<=0) continue;
+
+    let nx, ny, nz;
+    if(rotNormals){
+      // Smooth shading: average the three pre-rotated vertex normals
+      const na = rotNormals[tri[0]], nb = rotNormals[tri[1]], nc = rotNormals[tri[2]];
+      nx = (na[0]+nb[0]+nc[0])/3;
+      ny = (na[1]+nb[1]+nc[1])/3;
+      nz = (na[2]+nb[2]+nc[2])/3;
+    } else {
+      // Flat shading: compute face normal from triangle edges
+      const ux = b.x-a.x, uy = b.y-a.y, uz = b.zRaw-a.zRaw;
+      const vx = c.x-a.x, vy = c.y-a.y, vz = c.zRaw-a.zRaw;
+      nx = uy*vz - uz*vy;
+      ny = uz*vx - ux*vz;
+      nz = ux*vy - uy*vx;
+    }
+    const nlen = Math.hypot(nx,ny,nz);
+    if(nlen>0){nx/=nlen;ny/=nlen;nz/=nlen}
+
+    // light from sliders: azimuth (around Y) + elevation
+    const az = state.lightAz, el = state.lightEl;
+    const lx = Math.cos(el)*Math.sin(az);
+    const ly = Math.sin(el);
+    const lz = -Math.cos(el)*Math.cos(az);
+    const llen=Math.hypot(lx,ly,lz);
+    let dot = (nx*lx + ny*ly + nz*lz)/llen;
+    if(dot<0) dot = 0;
+    let intensity = state.shade ? (0.25 + 0.75*dot) : 1.0;
+
+    const avgZ = (a.zRaw + b.zRaw + c.zRaw)/3;
+    drawList.push({a,b,c,intensity,avgZ});
+  }
+  // painter's algorithm: far first
+  drawList.sort((p,q)=>q.avgZ - p.avgZ);
+
+  for(const t of drawList){
+    const bri = t.intensity;
+    const r = Math.round(255*bri);
+    const g = Math.round(255*bri);
+    const b = Math.round(255*bri);
+    const col = `rgb(${r},${g},${b})`;
+    sctx.fillStyle = col;
+    // Also stroke with the same color to fill seams between triangles caused by AA.
+    sctx.strokeStyle = col;
+    sctx.lineWidth = 1;
+    sctx.beginPath();
+    sctx.moveTo(t.a.sx, t.a.sy);
+    sctx.lineTo(t.b.sx, t.b.sy);
+    sctx.lineTo(t.c.sx, t.c.sy);
+    sctx.closePath();
+    sctx.fill();
+    sctx.stroke();
+  }
+}
+
+// =================== PIXEL DISPLAY (sample source -> draw dots) ===================
+function renderDisplay(){
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = state.bg;
+  ctx.fillRect(0,0,W,H);
+
+  const res = Math.max(8, state.res|0);
+  const cell = W / res;
+  const sw = sourceCanvas.width, sh = sourceCanvas.height;
+  const sampleScale = sw / res;
+
+  // get source image data
+  let imgData;
+  try {
+    imgData = sourceCtx.getImageData(0,0,sw,sh).data;
+  } catch(e){ return; }
+
+  const bgRgb = hexToRgb(state.bg);
+  const dispMode = state.displayMode;
+  const dotSize = state.dotSize;
+  const thresh = state.thresh;
+  const noise = state.noise;
+  const useQuant = state.quant && palCache.length>0;
+
+  for(let gy=0; gy<res; gy++){
+    for(let gx=0; gx<res; gx++){
+      // sample source: take the center of the cell
+      const sx = Math.floor((gx + 0.5) * sampleScale);
+      const sy = Math.floor((gy + 0.5) * sampleScale);
+      const idx = (sy * sw + sx) * 4;
+      let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+
+      // luminance
+      const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+      // threshold against bg
+      const bgLum = (0.299*bgRgb[0] + 0.587*bgRgb[1] + 0.114*bgRgb[2]) / 255;
+      const diff = Math.abs(lum - bgLum);
+      if(diff < thresh) continue;
+      if(noise>0 && Math.random()<noise*0.5) continue;
+
+      // pick output color
+      let outR=r, outG=g, outB=b;
+      if(useQuant){
+        if(state.wireframe){
+          // Wireframe pixels are white in source; pick a random palette color per dot
+          // so the wireframe takes on the full palette instead of just white.
+          const p = palCache[Math.floor(Math.random()*palCache.length)];
+          outR = p[0]; outG = p[1]; outB = p[2];
+        } else {
+          // quantize to nearest palette color, weighted by brightness
+          let best=palCache[0], bestD=Infinity;
+          for(const p of palCache){
+            const dr = p[0]-r, dg=p[1]-g, db=p[2]-b;
+            const d = dr*dr + dg*dg + db*db;
+            if(d<bestD){bestD=d;best=p}
+          }
+          // modulate by source brightness so lighting is preserved
+          const bri = state.shade ? (0.4 + 0.6*lum) : 1;
+          outR = Math.round(best[0]*bri);
+          outG = Math.round(best[1]*bri);
+          outB = Math.round(best[2]*bri);
+        }
+      }
+
+      // draw the cell
+      const cx = gx*cell + cell/2;
+      const cy = gy*cell + cell/2;
+      const sz = cell * dotSize;
+
+      if(dispMode==='dots'){
+        ctx.fillStyle=`rgb(${outR},${outG},${outB})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, sz*0.5, 0, Math.PI*2);
+        ctx.fill();
+      } else if(dispMode==='squares'){
+        ctx.fillStyle=`rgb(${outR},${outG},${outB})`;
+        ctx.fillRect(cx-sz/2, cy-sz/2, sz, sz);
+      } else if(dispMode==='rgb'){
+        // three vertical stripes per cell: R, G, B
+        const stripeW = cell/3;
+        const stripeH = cell*dotSize;
+        const top = cy - stripeH/2;
+        const sR = r/255, sG = g/255, sB = b/255;
+        ctx.fillStyle=`rgb(${Math.round(255*sR)},0,0)`;
+        ctx.fillRect(gx*cell, top, stripeW, stripeH);
+        ctx.fillStyle=`rgb(0,${Math.round(255*sG)},0)`;
+        ctx.fillRect(gx*cell+stripeW, top, stripeW, stripeH);
+        ctx.fillStyle=`rgb(0,0,${Math.round(255*sB)})`;
+        ctx.fillRect(gx*cell+stripeW*2, top, stripeW, stripeH);
+      } else if(dispMode==='ascii'){
+        const ramp = " .:-=+*#%@";
+        const ch = ramp[Math.min(ramp.length-1, Math.floor(lum*ramp.length))];
+        ctx.fillStyle=`rgb(${outR},${outG},${outB})`;
+        ctx.font = `${cell*0.9}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ch, cx, cy);
+      }
+    }
+  }
+
+  // === HIGHLIGHT GRAIN ===
+  // Scatter tiny dots near the brightest areas of the source.
+  if(state.grain){
+    drawHighlightGrain(imgData, sw, cell, res);
+  }
+}
+
+function drawHighlightGrain(imgData, sw, cell, res){
+  // Sample brightness across the source. For pixels brighter than a threshold,
+  // scatter some tiny dots in screen space nearby.
+  const W = canvas.width;
+  const grainCellPx = Math.max(1, cell * 0.18); // tiny dot size
+  const spread = state.grainSpread * cell * 1.4; // how far grain can land from highlight
+  // grainLevel 0 = low, 1 = med, 2 = high
+  const grainAmounts = [0.3, 0.6, 1.0];
+  const amount = grainAmounts[state.grainLevel] || 0.5;
+
+  // Brightness threshold: only the upper portion of the brightness range gets grain.
+  // amount=1 → threshold lower (more grain), amount=0 → no grain
+  if(amount <= 0) return;
+  const lumThreshold = 0.65 - amount*0.25; // 0.4 at full amount, 0.65 at low
+
+  // Pick how many grain attempts per cell — proportional to amount and density
+  const attemptsPerCell = amount * 3;
+  ctx.fillStyle = '#ffffff';
+
+  const sampleScale = sw / res;
+
+  for(let gy=0; gy<res; gy++){
+    for(let gx=0; gx<res; gx++){
+      // sample center of cell
+      const sx = Math.floor((gx + 0.5) * sampleScale);
+      const sy = Math.floor((gy + 0.5) * sampleScale);
+      const idx = (sy * sw + sx) * 4;
+      const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+      const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+      if(lum < lumThreshold) continue;
+
+      // weight: brighter pixels get more grain
+      const weight = (lum - lumThreshold) / (1 - lumThreshold);
+      const tries = attemptsPerCell * (0.3 + weight*1.4);
+
+      const cx = gx*cell + cell/2;
+      const cy = gy*cell + cell/2;
+
+      for(let i=0;i<tries;i++){
+        if(Math.random() > weight*0.85) continue;
+        // gaussian-ish offset
+        const a = Math.random()*Math.PI*2;
+        const r2 = spread * Math.sqrt(Math.random());
+        const ox = Math.cos(a)*r2;
+        const oy = Math.sin(a)*r2;
+        const px = cx + ox;
+        const py = cy + oy;
+        if(px<0||py<0||px>=W||py>=W) continue;
+        // small variation in grain dot size
+        const ds = grainCellPx * (0.4 + Math.random()*0.8);
+        ctx.beginPath();
+        ctx.arc(px, py, ds, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+let workCanvas, workCtx;
+
+let emitAccumulator = 0;
+
+// emitted particles { x, y, vx, vy, age, life, color }
+const emittedParticles = [];
+
+// =================== MAIN LOOP ===================
+let lastT = performance.now(), fpsBuf=[];
+function frame(now){
+  const dt = Math.min((now-lastT)/1000, 0.05);
+  lastT = now;
+
+  if(!state.paused){
+    state.time += dt;
+    if(state.autoRotate && !state.tiltRotate){
+      state.angX += state.rotX*dt;
+      state.angY += state.rotY*dt;
+      state.angZ += state.rotZ*dt;
+    }
+  }
+
+  renderSource();
+  renderDisplay();
+  if(state.emit){
+    // Step the emitter at its own lower FPS for that gritty, choppy look.
+    const stepInterval = 1 / Math.max(2, state.emitFps);
+    emitAccumulator += state.paused ? 0 : dt;
+    // Run as many discrete steps as time has accumulated
+    let steps = 0;
+    while(emitAccumulator >= stepInterval && steps < 4){
+      spawnEmittedParticles(stepInterval);
+      stepEmittedParticles(stepInterval);
+      emitAccumulator -= stepInterval;
+      steps++;
+    }
+    // If we accumulated way too much (tab was backgrounded), drop it
+    if(emitAccumulator > stepInterval*4) emitAccumulator = 0;
+    // Draw particles at their current state every frame
+    drawEmittedParticles();
+  } else if(emittedParticles.length){
+    emittedParticles.length = 0;
+  }
+  if(state.chroma) applyChromaticAberration();
+
+  fpsBuf.push(1/Math.max(dt,1e-3));
+  if(fpsBuf.length>30) fpsBuf.shift();
+  const fps = fpsBuf.reduce((a,b)=>a+b,0)/fpsBuf.length;
+  document.getElementById('fpsLabel').textContent = 'FPS '+fps.toFixed(0);
+
+  requestAnimationFrame(frame);
+}
+
+let tiltRotBaseline = null; // captured first reading; subsequent tilts are relative
+
+function onAnyDeviceOrientation(e){
+  if(e.beta == null || e.gamma == null) return;
+
+  if(state.tiltLight){
+    // gamma -90..90 → light azimuth -pi/2..pi/2
+    const az = (e.gamma / 90) * (Math.PI/2);
+    // beta near 90 = phone upright; map (beta-90) to elevation
+    const tilt = e.beta - 90;
+    const el = Math.max(-Math.PI/2, Math.min(Math.PI/2, (tilt / 90) * (Math.PI/2)));
+    state.lightAz = az;
+    state.lightEl = el;
+    const azSlider = document.getElementById('lightAz');
+    const elSlider = document.getElementById('lightEl');
+    if(azSlider){ azSlider.value = az; document.getElementById('lightAzVal').textContent = az.toFixed(2); }
+    if(elSlider){ elSlider.value = el; document.getElementById('lightElVal').textContent = el.toFixed(2); }
+  }
+
+  if(state.tiltRotate){
+    // Capture baseline on first reading so the user's current holding angle = neutral.
+    if(!tiltRotBaseline){
+      tiltRotBaseline = { beta: e.beta, gamma: e.gamma, alpha: e.alpha };
+      return;
+    }
+    // Deltas from baseline, in degrees
+    const dBeta  = e.beta  - tiltRotBaseline.beta;   // front-back → rotate around X
+    const dGamma = e.gamma - tiltRotBaseline.gamma;  // left-right → rotate around Y
+    let dAlpha = 0;
+    if(typeof e.alpha === 'number' && typeof tiltRotBaseline.alpha === 'number'){
+      dAlpha = e.alpha - tiltRotBaseline.alpha;      // compass spin → rotate around Z
+      // wrap to -180..180
+      if(dAlpha > 180) dAlpha -= 360;
+      if(dAlpha < -180) dAlpha += 360;
+    }
+    const DEG = Math.PI/180;
+    // Tilt is direct — phone tilt maps 1:1 to object rotation
+    state.angX = dBeta * DEG;
+    state.angY = dGamma * DEG;
+    state.angZ = dAlpha * DEG * 0.5; // alpha is less stable; damp it
+  }
+}
+
+function spawnEmittedParticles(dt){
+  if(state.paused) return;
+  const W = canvas.width, H = canvas.height;
+  const sw = sourceCanvas.width;
+  const res = Math.max(8, state.res|0);
+  const cell = W / res;
+  const sampleScale = sw / res;
+
+  let imgData;
+  try { imgData = sourceCtx.getImageData(0,0,sw,sw).data; } catch(e){ return; }
+
+  // emitRate 0..1 → spawns per second per highlighted cell (roughly)
+  // We do a per-frame Bernoulli per cell.
+  const probPerCell = state.emitRate * dt * 12; // tuned so 0.5 looks lively
+  const lumThreshold = 0.55;
+  const useQuant = state.quant && palCache.length>0;
+
+  for(let gy=0; gy<res; gy++){
+    for(let gx=0; gx<res; gx++){
+      const sx = Math.floor((gx + 0.5) * sampleScale);
+      const sy = Math.floor((gy + 0.5) * sampleScale);
+      const idx = (sy * sw + sx) * 4;
+      const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+      const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+      if(lum < lumThreshold) continue;
+
+      // brighter pixels are more likely to spawn
+      const bright = (lum - lumThreshold) / (1 - lumThreshold);
+      if(Math.random() > probPerCell * bright) continue;
+
+      // spawn from center of cell with random sub-cell jitter
+      const px = gx*cell + cell*0.5 + (Math.random()-0.5)*cell*0.8;
+      const py = gy*cell + cell*0.5 + (Math.random()-0.5)*cell*0.8;
+
+      // velocity: outward from canvas center + some random spread
+      const cx = W/2, cy = H/2;
+      let dx = px - cx, dy = py - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      dx/=dist; dy/=dist;
+      // add jitter to direction
+      const jitter = 0.6;
+      const ang = Math.atan2(dy, dx) + (Math.random()-0.5)*jitter;
+      const speed = (40 + Math.random()*120) * state.emitSpeed;
+
+      // particle color
+      let pr=255,pg=255,pb=255;
+      if(useQuant){
+        const p = palCache[Math.floor(Math.random()*palCache.length)];
+        pr=p[0]; pg=p[1]; pb=p[2];
+      } else {
+        pr=r; pg=g; pb=b;
+      }
+
+      emittedParticles.push({
+        x: px, y: py,
+        vx: Math.cos(ang)*speed,
+        vy: Math.sin(ang)*speed,
+        age: 0,
+        life: state.emitLife * (0.3 + Math.random()*1.4),
+        r: pr, g: pg, b: pb,
+        size: Math.max(1, cell * 0.18 * (0.6 + Math.random()*0.8)),
+      });
+    }
+  }
+
+  // hard cap so we never explode memory
+  const MAX = 5000;
+  if(emittedParticles.length > MAX){
+    emittedParticles.splice(0, emittedParticles.length - MAX);
+  }
+}
+
+function stepEmittedParticles(dt){
+  // Step physics for all particles by the given timestep, removing dead ones.
+  const drag = Math.pow(0.6, dt);
+  for(let i=emittedParticles.length-1; i>=0; i--){
+    const p = emittedParticles[i];
+    p.age += dt;
+    if(p.age >= p.life){ emittedParticles.splice(i,1); continue; }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= drag;
+    p.vy *= drag;
+  }
+}
+
+function drawEmittedParticles(){
+  for(let i=0;i<emittedParticles.length;i++){
+    const p = emittedParticles[i];
+    // binary on/off — full opacity until they die
+    ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`;
+    ctx.fillRect(p.x|0, p.y|0, Math.max(1,p.size|0), Math.max(1,p.size|0));
+  }
+}
+
+function applyChromaticAberration(){
+  const W = canvas.width, H = canvas.height;
+  // Make sure work canvas matches
+  if(workCanvas.width !== W || workCanvas.height !== H){
+    workCanvas.width = W;
+    workCanvas.height = H;
+  }
+  // copy current frame to work canvas
+  workCtx.clearRect(0,0,W,H);
+  workCtx.drawImage(canvas, 0, 0);
+
+  const src = workCtx.getImageData(0,0,W,H).data;
+  const out = ctx.createImageData(W,H);
+  const dst = out.data;
+  const bgRgb = hexToRgb(state.bg);
+
+  // amount is how many pixels the channels shift at the edge of the frame
+  // scaled by canvas size (so a 1080 canvas has a more obvious effect than 720)
+  // chromaLevel 0 = mild, 1 = med, 2 = strong
+  const chromaAmounts = [4, 12, 28];
+  const amount = (chromaAmounts[state.chromaLevel] || 8) * (W/1080);
+  const cx = W/2, cy = H/2;
+  const maxR = Math.hypot(cx, cy);
+
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      // direction from center, normalized 0..1 by radial distance
+      const dx = x - cx, dy = y - cy;
+      const dist = Math.hypot(dx, dy);
+      const norm = dist / maxR; // 0 at center, 1 at corner
+      // offset magnitude grows with distance from center (quadratic falloff = lens-like)
+      const off = amount * norm * norm;
+      // direction unit
+      const ux = dist>0 ? dx/dist : 0;
+      const uy = dist>0 ? dy/dist : 0;
+
+      // sample R channel shifted OUTWARD, B channel shifted INWARD, G stays put
+      const rx = Math.round(x + ux*off);
+      const ry = Math.round(y + uy*off);
+      const bx = Math.round(x - ux*off);
+      const by = Math.round(y - uy*off);
+
+      const idx = (y*W + x)*4;
+
+      // R
+      if(rx>=0 && rx<W && ry>=0 && ry<H){
+        dst[idx] = src[(ry*W + rx)*4];
+      } else {
+        dst[idx] = bgRgb[0];
+      }
+      // G (unchanged)
+      dst[idx+1] = src[idx+1];
+      // B
+      if(bx>=0 && bx<W && by>=0 && by<H){
+        dst[idx+2] = src[(by*W + bx)*4 + 2];
+      } else {
+        dst[idx+2] = bgRgb[2];
+      }
+      dst[idx+3] = 255;
+    }
+  }
+
+  ctx.putImageData(out, 0, 0);
+}
+
+// =================== EXPORT ===================
+function exportPNG(){
+  canvas.toBlob(blob=>{
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `pixeldisplay_${state.mode}_${Date.now()}.png`;
+    link.href = url;
+    link.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }, 'image/png');
+}
+
+let mediaRec=null, recChunks=[];
+function toggleRecord(){
+  const btn = document.getElementById('recBtn');
+  const ind = document.getElementById('recInd');
+  if(!mediaRec){
+    if(!window.MediaRecorder){alert('Recording not supported.');return}
+    recChunks=[];
+    const stream = canvas.captureStream(60);
+    const opts = [
+      {mimeType:'video/mp4;codecs=h264', videoBitsPerSecond: 12_000_000},
+      {mimeType:'video/webm;codecs=vp9', videoBitsPerSecond: 12_000_000},
+      {mimeType:'video/webm;codecs=vp8', videoBitsPerSecond: 12_000_000},
+      {mimeType:'video/webm'},
+    ];
+    let chosen = null;
+    for(const o of opts){ if(MediaRecorder.isTypeSupported(o.mimeType)){ chosen=o; break; } }
+    if(!chosen){ alert('No supported video format.'); return; }
+    mediaRec = new MediaRecorder(stream, chosen);
+    const ext = chosen.mimeType.includes('mp4')?'mp4':'webm';
+    mediaRec.ondataavailable = e => { if(e.data.size) recChunks.push(e.data); };
+    mediaRec.onstop = ()=>{
+      const blob = new Blob(recChunks, {type:chosen.mimeType});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url;
+      a.download=`pixeldisplay_${state.mode}_${Date.now()}.${ext}`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      mediaRec=null;
+      btn.innerHTML='⏺ REC';
+      btn.classList.add('primary');
+      ind.classList.remove('on');
+    };
+    mediaRec.start();
+    btn.innerHTML='⏹ STOP';
+    btn.classList.remove('primary');
+    ind.classList.add('on');
+  } else {
+    mediaRec.stop();
+  }
+}
+
+// =================== BOOT ===================
+window.addEventListener('load',()=>{
+  canvas = document.getElementById('stage');
+  ctx = canvas.getContext('2d');
+  sourceCanvas = document.createElement('canvas');
+  sourceCtx = sourceCanvas.getContext('2d', {willReadFrequently:true});
+  workCanvas = document.createElement('canvas');
+  workCtx = workCanvas.getContext('2d', {willReadFrequently:true});
+  resizeCanvases();
+  initSheet();
+  initUI();
+  requestAnimationFrame(frame);
+});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('dblclick',e=>e.preventDefault());
+</script>
+</body>
+</html>
