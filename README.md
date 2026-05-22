@@ -20,7 +20,7 @@ Built as a single self-contained `index.html` file. No build step, no dependenci
 - **Light direction control** — manual sliders or live phone tilt
 - **Motion sensor support** — tilt the phone to rotate the object or move the light direction in real-time
 - **Touch controls** — drag to rotate, pinch to zoom
-- **Export** — PNG snapshots and WebM/MP4 video recording at up to 1920×1920
+- **Export** — PNG snapshots, animated GIF, and WebM/MP4 video recording at up to 1920×1920
 
 ## Usage
 

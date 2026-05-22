@@ -313,7 +313,17 @@
   <button id="randomBtn">🎲 RND</button>
   <button id="pauseBtn">⏸ PAUSE</button>
   <button id="pngBtn">📷 PNG</button>
+  <button id="gifBtn">🎞 GIF</button>
   <button id="recBtn" class="primary">⏺ REC</button>
+</div>
+
+<!-- GIF progress overlay -->
+<div id="gifOverlay" style="display:none;position:absolute;inset:0;z-index:50;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#fff;font-family:inherit;font-size:11px;letter-spacing:.15em">
+  <div style="width:200px;height:4px;background:#222;border-radius:100px;overflow:hidden">
+    <div id="gifBar" style="width:0%;height:100%;background:var(--accent);transition:width .15s"></div>
+  </div>
+  <div id="gifStatus" style="text-transform:uppercase">PREPARING</div>
+  <button id="gifCancel" style="background:transparent;border:1px solid #333;color:#888;padding:8px 16px;border-radius:6px;font-family:inherit;font-size:10px;letter-spacing:.1em;cursor:pointer;text-transform:uppercase">CANCEL</button>
 </div>
 
 <div class="sheet" id="sheet">
@@ -511,6 +521,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/gif.js.optimized@1.0.1/dist/gif.js"></script>
 <script>
 // =================== PALETTES ===================
 const PALETTES = {
@@ -1160,6 +1171,7 @@ function initUI(){
   document.getElementById('randomBtn').onclick=randomize;
   document.getElementById('pauseBtn').onclick=togglePause;
   document.getElementById('pngBtn').onclick=exportPNG;
+  document.getElementById('gifBtn').onclick=startGifExport;
   document.getElementById('recBtn').onclick=toggleRecord;
 
   // drag rotate + pinch zoom
@@ -1864,6 +1876,110 @@ function exportPNG(){
     link.click();
     setTimeout(()=>URL.revokeObjectURL(url), 1000);
   }, 'image/png');
+}
+
+// ===== GIF EXPORT =====
+let gifRec = null;
+let gifCancelled = false;
+
+function startGifExport(){
+  if(gifRec){ return; } // already recording
+
+  // Ask user for duration
+  const input = prompt('GIF duration in seconds (1-10):', '3');
+  if(input === null) return;
+  const secs = Math.max(1, Math.min(10, parseFloat(input) || 3));
+
+  // Settings: 15 fps is the sweet spot — file size manageable, looks smooth
+  const FPS = 15;
+  const totalFrames = Math.round(secs * FPS);
+  const frameDelay = 1000 / FPS;
+
+  // Use a smaller output size to keep GIF file size reasonable
+  // GIF gets huge fast, so cap at 540px even if canvas is bigger
+  const outSize = Math.min(canvas.width, 540);
+
+  // Check the gif.js library loaded
+  if(typeof GIF === 'undefined'){
+    alert('GIF encoder failed to load. Check your network connection and refresh.');
+    return;
+  }
+
+  const overlay = document.getElementById('gifOverlay');
+  const bar = document.getElementById('gifBar');
+  const status = document.getElementById('gifStatus');
+  overlay.style.display = 'flex';
+  bar.style.width = '0%';
+  status.textContent = 'CAPTURING 0 / ' + totalFrames;
+  gifCancelled = false;
+
+  // Cancel button
+  document.getElementById('gifCancel').onclick = ()=>{
+    gifCancelled = true;
+    if(gifRec){
+      try{ gifRec.abort(); }catch(e){}
+      gifRec = null;
+    }
+    overlay.style.display = 'none';
+  };
+
+  // Use a temporary downsizing canvas for each frame
+  const tmp = document.createElement('canvas');
+  tmp.width = outSize;
+  tmp.height = outSize;
+  const tmpCtx = tmp.getContext('2d');
+
+  gifRec = new GIF({
+    workers: 2,
+    quality: 10,           // 1=best, 30=worst; 10 is a nice balance
+    width: outSize,
+    height: outSize,
+    workerScript: 'https://cdn.jsdelivr.net/npm/gif.js.optimized@1.0.1/dist/gif.worker.js',
+    background: state.bg,
+  });
+
+  gifRec.on('progress', p => {
+    if(gifCancelled) return;
+    bar.style.width = (50 + p*50) + '%'; // second half of progress bar = encoding
+    status.textContent = 'ENCODING ' + Math.round(p*100) + '%';
+  });
+
+  gifRec.on('finished', blob => {
+    if(gifCancelled){ return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pixeldisplay_${state.mode}_${Date.now()}.gif`;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    overlay.style.display = 'none';
+    gifRec = null;
+  });
+
+  // Capture frames using requestAnimationFrame so we get
+  // real rendered output (with all effects applied)
+  let captured = 0;
+  let nextCaptureTime = performance.now();
+
+  function captureLoop(now){
+    if(gifCancelled){ gifRec = null; return; }
+    if(now >= nextCaptureTime){
+      // Downsize current canvas onto tmp and add to gif
+      tmpCtx.drawImage(canvas, 0, 0, outSize, outSize);
+      gifRec.addFrame(tmpCtx, { copy: true, delay: frameDelay });
+      captured++;
+      nextCaptureTime += frameDelay;
+      bar.style.width = (captured/totalFrames * 50) + '%'; // first half = capturing
+      status.textContent = 'CAPTURING ' + captured + ' / ' + totalFrames;
+      if(captured >= totalFrames){
+        status.textContent = 'ENCODING 0%';
+        gifRec.render();
+        return;
+      }
+    }
+    requestAnimationFrame(captureLoop);
+  }
+  requestAnimationFrame(captureLoop);
 }
 
 let mediaRec=null, recChunks=[];
