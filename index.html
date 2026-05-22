@@ -64,7 +64,9 @@
   }
   .logo{font-weight:700;letter-spacing:.2em;font-size:11px;pointer-events:auto}
   .logo span{color:var(--accent)}
-  .status{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.15em;color:var(--dim);pointer-events:auto}
+  .status{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.15em;color:var(--dim);pointer-events:auto;cursor:pointer;padding:6px 10px;border-radius:100px;transition:background .15s,color .15s}
+  .status:hover{color:var(--ink);background:rgba(255,255,255,0.05)}
+  .status:active{transform:scale(0.96)}
   .status .dot{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:pulse 1.4s infinite}
   .status.paused .dot{background:#444;animation:none}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
@@ -293,6 +295,186 @@
     position:absolute;top:calc(var(--safe-top) + 12px);left:50%;transform:translateX(-50%);
     font-size:9px;letter-spacing:.2em;color:#333;pointer-events:none;
   }
+
+  /* ===================================================================
+     DESKTOP LAYOUT — kicks in at 900px+
+     Sheet becomes a fixed right sidebar; canvas takes the left.
+     Sliders and toggles arrange in columns; buttons are smaller.
+     =================================================================== */
+  @media (min-width: 900px){
+    body{font-size:12px}
+
+    /* Canvas fills the area left of the sidebar */
+    #stageWrap{
+      top:0;
+      left:0;
+      right:380px;
+      bottom:0;
+      padding:30px;
+    }
+    body.sheet-expanded #stageWrap{
+      bottom:0;
+      right:380px;
+    }
+    #stage{
+      max-width:min(calc(100vw - 380px - 60px), calc(100vh - 60px));
+      max-height:min(calc(100vw - 380px - 60px), calc(100vh - 60px));
+    }
+
+    /* Sidebar replaces bottom sheet */
+    .sheet{
+      top:0;
+      bottom:0;
+      left:auto;
+      right:0;
+      width:380px;
+      height:100vh !important;
+      border-radius:0;
+      border-top:none;
+      border-left:1px solid var(--line);
+      transition:none;
+    }
+    .handle{display:none}
+
+    /* Tabs across top of sidebar */
+    .tabs{padding:8px 8px 2px}
+    .tab{padding:8px 10px;font-size:9px}
+
+    .sheet-body{padding:14px 16px 30px}
+
+    /* Quick action buttons → top-left floating chip bar below the topbar */
+    .quick{
+      bottom:auto;
+      top:52px;
+      right:auto;
+      left:30px;
+      width:auto;
+      justify-content:flex-start;
+      padding:0;
+      flex-wrap:wrap;
+      max-width:calc(100vw - 380px - 60px);
+    }
+    body.sheet-expanded .quick{opacity:1;pointer-events:auto}
+    .quick button{
+      padding:6px 10px;
+      font-size:10px;
+      min-height:0;
+      letter-spacing:.1em;
+    }
+
+    /* Topbar still spans the canvas area only */
+    .topbar{
+      right:380px;
+      padding:14px 16px;
+    }
+    .logo{font-size:10px}
+    .status{font-size:9px}
+
+    .fps{
+      top:14px;
+      left:auto;
+      right:400px;
+      transform:none;
+    }
+    .rec-indicator{
+      left:auto;right:400px;transform:none;
+      top:34px;
+    }
+    .hint{
+      left:auto;right:400px;transform:none;
+      top:34px;
+    }
+
+    /* SHAPE grid — 3 columns reads cleaner on desktop than 5 */
+    .modes{grid-template-columns:repeat(3,1fr);gap:5px}
+    .modes button{min-height:46px;font-size:9px;padding:6px 4px 5px}
+    .modes button svg{width:16px;height:16px}
+
+    /* RENDER toggles — 2 columns instead of 4 wide buttons */
+    .icon-toggles{grid-template-columns:repeat(2,1fr);gap:6px}
+    .icon-tog{aspect-ratio:auto;padding:8px 4px 14px;min-height:54px}
+    .icon-tog svg{width:16px;height:16px}
+    .icon-tog .tog-label{font-size:8px}
+    .icon-tog .level-bar{bottom:5px;padding:0 12px}
+
+    /* Sliders → two columns, narrower */
+    .panel{
+      display:none;
+    }
+    .panel.active{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      column-gap:14px;
+      row-gap:0;
+      align-items:start;
+    }
+    .panel > *{grid-column:span 1}
+    /* Full-width items inside panels */
+    .panel .modes,
+    .panel .palettes,
+    .panel .icon-toggles,
+    .panel .divider,
+    .panel > p,
+    .panel > [data-fullwidth]{
+      grid-column:1 / -1;
+    }
+    /* Containers that hold multiple slider-rows: span full width
+       and arrange their children in a 2-col grid too.
+       JS sets inline style.display='block' when toggling on; !important
+       ensures we still get the desktop grid layout when visible. */
+    .panel #grainRows[style*="block"],
+    .panel #emitRows[style*="block"],
+    .panel #chromaAmountRow[style*="block"]{
+      grid-column:1 / -1;
+      display:grid !important;
+      grid-template-columns:1fr 1fr;
+      column-gap:14px;
+    }
+    /* When they're set to display:none, leave them hidden */
+    .panel #grainRows,
+    .panel #emitRows,
+    .panel #chromaAmountRow{
+      grid-column:1 / -1;
+    }
+    .divider{margin:10px 0 6px;font-size:8px}
+
+    .slider-row{margin-bottom:8px}
+    .slider-head label{font-size:9px}
+    .slider-head .val{font-size:11px}
+    input[type=range]{height:20px}
+    input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:-7px}
+    input[type=range]::-moz-range-thumb{width:16px;height:16px}
+
+    .select-row{padding:8px 0}
+    .select-row label{font-size:9px}
+    .select-row select{font-size:10px;padding:6px 8px;min-width:100px}
+
+    /* Palettes — keep 2 columns but smaller */
+    .palettes{grid-template-columns:repeat(2,1fr);gap:6px}
+    .palette{padding:6px}
+    .palette .swatches{height:14px;margin-bottom:3px}
+    .palette .name{font-size:8px}
+
+    /* Dragging support: cursor */
+    #stage{cursor:grab}
+    #stage:active{cursor:grabbing}
+  }
+
+  /* Wider screens — even more breathing room */
+  @media (min-width: 1400px){
+    #stageWrap{right:440px}
+    body.sheet-expanded #stageWrap{right:440px}
+    .topbar{right:440px}
+    .sheet{width:440px}
+    .quick{max-width:calc(100vw - 440px - 60px)}
+    .fps{right:460px}
+    .rec-indicator{right:460px}
+    .hint{right:460px}
+    #stage{
+      max-width:min(calc(100vw - 440px - 60px), calc(100vh - 60px));
+      max-height:min(calc(100vw - 440px - 60px), calc(100vh - 60px));
+    }
+  }
 </style>
 </head>
 <body>
@@ -311,7 +493,6 @@
 
 <div class="quick">
   <button id="randomBtn">🎲 RND</button>
-  <button id="pauseBtn">⏸ PAUSE</button>
   <button id="pngBtn">📷 PNG</button>
   <button id="gifBtn">🎞 GIF</button>
   <button id="recBtn" class="primary">⏺ REC</button>
@@ -1169,7 +1350,7 @@ function initUI(){
   document.getElementById('bgColor').onchange=(e)=>{state.bg=e.target.value};
 
   document.getElementById('randomBtn').onclick=randomize;
-  document.getElementById('pauseBtn').onclick=togglePause;
+  document.getElementById('statusBar').onclick=togglePause;
   document.getElementById('pngBtn').onclick=exportPNG;
   document.getElementById('gifBtn').onclick=startGifExport;
   document.getElementById('recBtn').onclick=toggleRecord;
@@ -1257,6 +1438,34 @@ function randomize(){
   state.lightEl = (Math.random()-0.5)*Math.PI;
   const modes2 = ['dots','squares','rgb'];
   state.displayMode = modes2[Math.floor(Math.random()*modes2.length)];
+
+  // Sometimes flip the multi-state toggles. Skewed so they're more often OFF
+  // than ON, otherwise every random preset gets noisy.
+  // Wireframe: 25% chance to be on, random level
+  if(Math.random() < 0.25){
+    state.wireframe = true;
+    state.wireLevel = Math.floor(Math.random()*3);
+  } else {
+    state.wireframe = false;
+  }
+  // Grain: 30% chance to be on, random level
+  if(Math.random() < 0.30){
+    state.grain = true;
+    state.grainLevel = Math.floor(Math.random()*3);
+  } else {
+    state.grain = false;
+  }
+  // Emitter: 25% chance to be on
+  state.emit = Math.random() < 0.25;
+  if(!state.emit) emittedParticles.length = 0;
+  // Chromatic aberration: 20% chance to be on, random level (kept subtle)
+  if(Math.random() < 0.20){
+    state.chroma = true;
+    state.chromaLevel = Math.floor(Math.random()*3);
+  } else {
+    state.chroma = false;
+  }
+
   // re-sync ui
   document.querySelectorAll('#modeButtons button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.mode));
   document.querySelectorAll('.palette').forEach(b=>b.classList.toggle('active',b.dataset.key===state.palette));
@@ -1265,12 +1474,28 @@ function randomize(){
     document.getElementById(k).value=state[k];
     document.getElementById(k+'Val').textContent = (k==='res')?(state[k]|0):state[k].toFixed(2);
   });
+
+  // Sync multi-state toggle visuals (on/off class + level bar attribute)
+  const syncMulti = (id, onProp, levelProp)=>{
+    const el = document.getElementById(id);
+    el.classList.toggle('on', state[onProp]);
+    el.dataset.level = state[onProp] ? String(state[levelProp]+1) : '0';
+  };
+  syncMulti('wireToggle', 'wireframe', 'wireLevel');
+  syncMulti('grainToggle', 'grain', 'grainLevel');
+  syncMulti('chromaToggle', 'chroma', 'chromaLevel');
+
+  // Sync emitter (simple on/off) and show/hide its sliders
+  const emitEl = document.getElementById('emitToggle');
+  emitEl.classList.toggle('on', state.emit);
+  document.getElementById('emitRows').style.display = state.emit ? 'block' : 'none';
+  document.getElementById('grainRows').style.display = state.grain ? 'block' : 'none';
+
   cachePalette();
 }
 
 function togglePause(){
   state.paused=!state.paused;
-  document.getElementById('pauseBtn').textContent = state.paused?'▶ PLAY':'⏸ PAUSE';
   document.getElementById('statusBar').classList.toggle('paused', state.paused);
   document.getElementById('statusText').textContent = state.paused?'PAUSED':'LIVE';
 }
@@ -1881,8 +2106,22 @@ function exportPNG(){
 // ===== GIF EXPORT =====
 let gifRec = null;
 let gifCancelled = false;
+let gifWorkerBlobUrl = null; // cached blob URL for the worker script
 
-function startGifExport(){
+const GIF_WORKER_URL = 'https://cdn.jsdelivr.net/npm/gif.js.optimized@1.0.1/dist/gif.worker.js';
+
+// Fetch the worker script as a Blob URL so it works regardless of CORS quirks.
+async function ensureGifWorker(){
+  if(gifWorkerBlobUrl) return gifWorkerBlobUrl;
+  const res = await fetch(GIF_WORKER_URL);
+  if(!res.ok) throw new Error('Worker fetch failed: '+res.status);
+  const text = await res.text();
+  const blob = new Blob([text], {type:'application/javascript'});
+  gifWorkerBlobUrl = URL.createObjectURL(blob);
+  return gifWorkerBlobUrl;
+}
+
+async function startGifExport(){
   if(gifRec){ return; } // already recording
 
   // Ask user for duration
@@ -1890,13 +2129,12 @@ function startGifExport(){
   if(input === null) return;
   const secs = Math.max(1, Math.min(10, parseFloat(input) || 3));
 
-  // Settings: 15 fps is the sweet spot — file size manageable, looks smooth
+  // Settings: 15 fps — file size manageable, looks smooth
   const FPS = 15;
   const totalFrames = Math.round(secs * FPS);
   const frameDelay = 1000 / FPS;
 
-  // Use a smaller output size to keep GIF file size reasonable
-  // GIF gets huge fast, so cap at 540px even if canvas is bigger
+  // Cap output size to keep GIF file size reasonable
   const outSize = Math.min(canvas.width, 540);
 
   // Check the gif.js library loaded
@@ -1910,10 +2148,9 @@ function startGifExport(){
   const status = document.getElementById('gifStatus');
   overlay.style.display = 'flex';
   bar.style.width = '0%';
-  status.textContent = 'CAPTURING 0 / ' + totalFrames;
+  status.textContent = 'LOADING ENCODER';
   gifCancelled = false;
 
-  // Cancel button
   document.getElementById('gifCancel').onclick = ()=>{
     gifCancelled = true;
     if(gifRec){
@@ -1923,7 +2160,21 @@ function startGifExport(){
     overlay.style.display = 'none';
   };
 
-  // Use a temporary downsizing canvas for each frame
+  // Pre-fetch worker script as blob URL — bypasses CORS-on-Worker issues
+  let workerUrl;
+  try {
+    workerUrl = await ensureGifWorker();
+  } catch(err){
+    status.textContent = 'ENCODER LOAD FAILED';
+    setTimeout(()=>{ overlay.style.display = 'none'; }, 2500);
+    console.error('GIF worker load error:', err);
+    return;
+  }
+  if(gifCancelled) return;
+
+  status.textContent = 'CAPTURING 0 / ' + totalFrames;
+
+  // Downsizing canvas for each frame
   const tmp = document.createElement('canvas');
   tmp.width = outSize;
   tmp.height = outSize;
@@ -1931,16 +2182,16 @@ function startGifExport(){
 
   gifRec = new GIF({
     workers: 2,
-    quality: 10,           // 1=best, 30=worst; 10 is a nice balance
+    quality: 10,
     width: outSize,
     height: outSize,
-    workerScript: 'https://cdn.jsdelivr.net/npm/gif.js.optimized@1.0.1/dist/gif.worker.js',
+    workerScript: workerUrl,
     background: state.bg,
   });
 
   gifRec.on('progress', p => {
     if(gifCancelled) return;
-    bar.style.width = (50 + p*50) + '%'; // second half of progress bar = encoding
+    bar.style.width = (50 + p*50) + '%';
     status.textContent = 'ENCODING ' + Math.round(p*100) + '%';
   });
 
@@ -1956,24 +2207,32 @@ function startGifExport(){
     gifRec = null;
   });
 
-  // Capture frames using requestAnimationFrame so we get
-  // real rendered output (with all effects applied)
+  gifRec.on('abort', ()=>{
+    gifRec = null;
+  });
+
+  // Capture frames via rAF
   let captured = 0;
   let nextCaptureTime = performance.now();
 
   function captureLoop(now){
     if(gifCancelled){ gifRec = null; return; }
     if(now >= nextCaptureTime){
-      // Downsize current canvas onto tmp and add to gif
       tmpCtx.drawImage(canvas, 0, 0, outSize, outSize);
       gifRec.addFrame(tmpCtx, { copy: true, delay: frameDelay });
       captured++;
       nextCaptureTime += frameDelay;
-      bar.style.width = (captured/totalFrames * 50) + '%'; // first half = capturing
+      bar.style.width = (captured/totalFrames * 50) + '%';
       status.textContent = 'CAPTURING ' + captured + ' / ' + totalFrames;
       if(captured >= totalFrames){
         status.textContent = 'ENCODING 0%';
-        gifRec.render();
+        try {
+          gifRec.render();
+        } catch(err){
+          console.error('GIF render error:', err);
+          status.textContent = 'ENCODE FAILED';
+          setTimeout(()=>{ overlay.style.display = 'none'; gifRec = null; }, 2000);
+        }
         return;
       }
     }
@@ -2035,8 +2294,20 @@ window.addEventListener('load',()=>{
   resizeCanvases();
   initSheet();
   initUI();
+  applyLayout();
   requestAnimationFrame(frame);
 });
+
+// Toggle layout-specific tweaks for desktop/mobile
+function applyLayout(){
+  const desktop = window.matchMedia('(min-width: 900px)').matches;
+  if(desktop){
+    // On desktop the sidebar is always fully visible — drop the mobile expand state
+    document.body.classList.remove('sheet-expanded');
+    document.getElementById('sheet').classList.remove('expanded');
+  }
+}
+window.addEventListener('resize', applyLayout);
 document.addEventListener('gesturestart',e=>e.preventDefault());
 document.addEventListener('dblclick',e=>e.preventDefault());
 </script>
